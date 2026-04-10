@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coffee Trading Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Mulish:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     TOP BAR
+══════════════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="topbar-brand">
+    <span class="topbar-icon">&#9749;</span>
+    <div>
+      <span class="logo-name">Coffee Trading Desk</span>
+      <span class="logo-tag">Uganda Green Bean Export</span>
+    </div>
+  </div>
+  <div class="top-right">
+    <span class="fstat" id="fstat">Prices updated manually</span>
+    <button class="fxbtn" id="fetch-btn" onclick="fetchPrices()">
+      <span id="ficon">&#8635;</span> Fetch Live Prices
+    </button>
+    <button class="fxbtn sb-toggle-btn" id="sb-toggle" onclick="toggleSidebar()">
+      &#9776; Competitors
+    </button>
+    <span class="topdate" id="topdate"></span>
+    <span class="version-tag">Pilot v1</span>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     PRICE PULSE BAR
+══════════════════════════════════════════════════════════ -->
+<div class="pulse" role="group" aria-label="Market prices">
+  <div class="pc">
+    <div class="pl">ICE Arabica (cts/lb)</div>
+    <input class="pi" id="ice" type="number" value="309.75" step="0.25" oninput="update()" aria-label="ICE Arabica price">
+    <div class="ph">Barchart daily</div>
+  </div>
+  <div class="pc">
+    <div class="pl">Liffe Robusta (USD/MT)</div>
+    <input class="pi" id="liffe" type="number" value="3664" step="1" oninput="update()" aria-label="Liffe Robusta price">
+    <div class="ph">Barchart daily</div>
+  </div>
+  <div class="pc">
+    <div class="pl">FX Rate (UGX/USD)</div>
+    <input class="pi" id="fx" type="number" value="3773" step="1" oninput="update()" aria-label="UGX/USD exchange rate">
+    <div class="ph">Bank rate daily</div>
+  </div>
+  <div class="pc">
+    <div class="pl">Min Margin (USD/MT)</div>
+    <input class="pi" id="target" type="number" value="300" step="10" oninput="update()" aria-label="Minimum target margin">
+    <div class="ph">Protect $300/MT always</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW NAV BAR
+══════════════════════════════════════════════════════════ -->
+<nav class="vbar" aria-label="Module navigation">
+  <button class="vbtn active" data-view="field"   onclick="switchView('field',this)">&#128241; Field Buyer</button>
+  <button class="vbtn"        data-view="trader"  onclick="switchView('trader',this)">&#128202; Trader View</button>
+  <button class="vbtn"        data-view="intel"   onclick="switchView('intel',this)">&#128269; Market Intel</button>
+  <button class="vbtn"        data-view="diff"    onclick="switchView('diff',this)">&#8644; Diff Table</button>
+  <button class="vbtn"        data-view="costs"   onclick="switchView('costs',this)">&#9881; Cost Engine</button>
+  <button class="vbtn"        data-view="deallog" onclick="switchView('deallog',this)" id="dl-tab-btn">
+    &#128203; Deal Log<span class="badge" id="dl-badge" style="display:none">0</span>
+  </button>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN LAYOUT
+══════════════════════════════════════════════════════════ -->
+<div class="main">
+<div class="content-area">
+
+<!-- ──────────────────────────────────────────────────────────
+     VIEW: FIELD BUYER
+────────────────────────────────────────────────────────── -->
+<section id="view-field" class="view active-view">
+<div class="view-inner">
+  <h1 class="ptitle">Should I buy this coffee?</h1>
+  <p class="pdesc">Price is market-set &#8212; you don't negotiate it. Your only levers are <strong class="text-gold">QC cuts</strong> on moisture, pods and extraneous matter, and <strong class="text-gold">walking away</strong> if it doesn't work. Enter the details for a clear BUY or WALK AWAY.</p>
+
+  <!-- Mode tabs -->
+  <div class="mtabs" role="tablist">
+    <button class="mtb active" id="fbm-faq" role="tab" aria-selected="true" onclick="setFBMode('faq')">
+      FAQ / Parchment<span class="mtb-s">Main mode &#8212; raw coffee, process in-house</span>
+    </button>
+    <button class="mtb" id="fbm-proc" role="tab" aria-selected="false" onclick="setFBMode('proc')">
+      Processed Green Bean<span class="mtb-s">Rare &#8212; buying already graded at FOT price</span>
+    </button>
+  </div>
+
+  <!-- ── FAQ FIELDS ── -->
+  <div id="fb-faq-fields">
+    <div class="fg2 mb-12">
+      <div>
+        <div class="fl">Coffee Type</div>
+        <div class="tt">
+          <button class="ttb active" id="fb-rob" onclick="setFBType('rob')">Robusta</button>
+          <button class="ttb" id="fb-ara" onclick="setFBType('ara')">Arabica</button>
+        </div>
+      </div>
+      <div>
+        <div class="fl">Collection Point</div>
+        <select class="fi" id="fb-loc" onchange="update()">
+          <option value="0">Namanve (Factory)</option>
+          <option value="1">Zigoti</option>
+          <option value="2">Masaka</option>
+          <option value="3" selected>Mubende</option>
+          <option value="4">Rukungiri</option>
+        </select>
+        <div id="fb-loc-check" class="loc-check loc-check--ok">
+          <div class="loc-check-txt">Market vs threshold</div>
+          <div class="loc-check-status">&#8212;</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fg2 mb-12">
+      <div>
+        <div class="fl" id="fb-plbl">FAQ Price (UGX/kg)</div>
+        <input class="fi" id="fb-price" type="number" value="11000" step="100" oninput="update()">
+      </div>
+      <div>
+        <div class="fl">Total Weight (kg)</div>
+        <input class="fi" id="fb-wt" type="number" value="1000" step="50" oninput="update()">
+      </div>
+    </div>
+
+    <div class="fg2 mb-12">
+      <div>
+        <div class="fl">FAQ &#8594; Green Outturn (%)</div>
+        <input class="fi" id="fb-ot" type="number" value="85" step="1" oninput="update()">
+      </div>
+      <div>
+        <div class="fl">Actual Moisture (%)</div>
+        <input class="fi" id="fb-mc" type="number" value="14" step="0.1" min="10" max="22" oninput="update()">
+      </div>
+    </div>
+
+    <!-- Grade mix -->
+    <div class="grade-mix-section">
+      <div class="grade-mix-header">
+        <div class="fl mb-0">Grade Mix Output (% of outturn) &#8212; adjust per batch</div>
+        <span class="mono-xs text-sub" id="fb-mix-total">Sellable: 96.6% | FM: 3.4%</span>
+      </div>
+      <div id="fb-mix-grid" class="mix-grid"></div>
+      <p class="helper-text">Each grade % &#215; its FOB diff = your blended selling price. FM/dust has no sale value.</p>
+      <!-- Grade FOB breakdown table -->
+      <div class="grade-fob-wrap" id="fb-grade-fob-wrap">
+        <div class="grade-fob-hd">
+          <span>Grade</span>
+          <span class="text-right">Mix %</span>
+          <span class="text-right">FOB $/MT</span>
+          <span class="text-right">Contribution</span>
+        </div>
+        <div id="fb-grade-fob-rows"></div>
+        <div class="grade-fob-row grade-fob-row--tot" id="fb-grade-fob-tot">
+          <span>Blended FOB</span><span></span><span></span>
+          <span class="gfob-contrib">&#8212;</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- QC Sample Panel -->
+    <div class="qc-panel">
+      <div class="qc-panel-header">
+        <div class="fl mb-0">&#128300; Sample Quality Penalties</div>
+        <div class="mono-xs text-sub">
+          Factor: <strong class="text-gold mono" id="fb-factor">1.0000</strong>
+          &nbsp;|&nbsp;
+          Cut: <strong class="text-amb mono" id="fb-adj-price">0 kg</strong>
+        </div>
+      </div>
+      <div class="fg3 mb-10">
+        <div>
+          <div class="fl">MC Tolerance (%)</div>
+          <input class="fi fi-sm" id="mc-tol" type="number" value="13.0" step="0.5" min="10" max="15"
+            oninput="document.getElementById('fb-tol-lbl').textContent=this.value+'%';update()">
+        </div>
+        <div>
+          <div class="fl">Pods (%)</div>
+          <input class="fi" id="fb-pods" type="number" value="0" step="0.01" min="0" oninput="update()">
+        </div>
+        <div>
+          <div class="fl">Ex Matter (%)</div>
+          <input class="fi" id="fb-exm" type="number" value="0" step="0.1" min="0" oninput="update()">
+        </div>
+      </div>
+      <div class="fg3">
+        <div>
+          <div class="fl">Husks (%)</div>
+          <input class="fi" id="fb-husks" type="number" value="0" step="0.1" min="0" oninput="update()">
+        </div>
+        <div>
+          <div class="fl">Neg. OT Addition (UGX/kg)</div>
+          <input class="fi" id="fb-ot-add" type="number" value="0" step="10" oninput="update()">
+        </div>
+        <div class="qc-formula">
+          Tol: <span id="fb-tol-lbl" class="text-gold">13%</span><br>
+          Final = (price + add) &divide; factor
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PROCESSED FIELDS ── -->
+  <div id="fb-proc-fields" style="display:none">
+    <div class="warn-box">
+      &#9888;&#65039; <strong>Processed buying mode.</strong>
+      You're buying at FOT price (USD/MT). Your costs are Kampala&#8594;Mombasa logistics (~$110) + cess + interest + small handling.
+      If the FOT price doesn't leave you a margin above target, <strong>walk away</strong> &#8212; there is no price to negotiate.
+    </div>
+    <div class="fg2 mt-12 mb-12">
+      <div>
+        <div class="fl">Coffee Type</div>
+        <div class="tt">
+          <button class="ttb active" id="fb-pr-rob" onclick="setFBProcType('rob')">Robusta</button>
+          <button class="ttb" id="fb-pr-ara" onclick="setFBProcType('ara')">Arabica</button>
+        </div>
+      </div>
+      <div>
+        <div class="fl">Grade</div>
+        <select class="fi" id="fb-proc-grade" onchange="update()"></select>
+      </div>
+    </div>
+    <div class="fg2">
+      <div>
+        <div class="fl">Their FOT Price (USD/MT)</div>
+        <input class="fi" id="fb-fot" type="number" value="3350" step="10" oninput="update()">
+      </div>
+      <div>
+        <div class="fl">Volume (MT)</div>
+        <input class="fi" id="fb-pvol" type="number" value="19.2" step="0.1" oninput="update()">
+      </div>
+    </div>
+  </div>
+
+  <!-- QC Cut Box -->
+  <div class="qcbox" id="fb-qcbox">
+    <div class="qcbt">&#9986;&#65039; Kgs to Cut from This Batch</div>
+    <div class="qcbig" id="fb-qcval">&#8212;</div>
+    <div class="qcsub" id="fb-qcsub">&#8212;</div>
+    <div class="qcsteps">
+      <div class="qcs"><span class="qcsn">1</span><span id="qcs1">&#8212;</span></div>
+      <div class="qcs"><span class="qcsn">2</span><span id="qcs2">&#8212;</span></div>
+      <div class="qcs"><span class="qcsn">3</span><span id="qcs3">&#8212;</span></div>
+    </div>
+  </div>
+
+  <!-- Verdict -->
+  <div class="verdict verdict--go" id="fb-verdict">
+    <div class="v-em" id="fb-em">&#9989;</div>
+    <div class="v-wd" id="fb-wd">BUY</div>
+    <div class="v-rs" id="fb-rs">&#8212;</div>
+  </div>
+
+  <!-- Cut Needed Box -->
+  <div class="cut-box" id="fb-cut-box">
+    <div class="cut-box-hd" id="fb-cut-hd">&#9986; Cuts needed to reach target</div>
+    <div class="cut-big" id="fb-cut-big">&#8212;</div>
+    <div class="cut-detail" id="fb-cut-detail"></div>
+    <div class="cut-steps" id="fb-cut-steps"></div>
+  </div>
+
+  <!-- Margin Bar -->
+  <div class="margin-bar-wrap">
+    <div class="margin-bar-labels">
+      <span>Loss</span>
+      <span id="mb-target-lbl">Target $300/MT</span>
+      <span>Above target</span>
+    </div>
+    <div class="margin-bar-track">
+      <div class="margin-bar-fill" id="margin-bar-fill"></div>
+      <div class="margin-bar-target" id="margin-bar-target"></div>
+    </div>
+    <div class="margin-bar-nums">
+      <span class="text-sub">Breakeven:</span>
+      <strong class="mono" id="mb-breakeven">&#8212;</strong>
+      <span class="text-sub">Margin:</span>
+      <strong class="mono" id="mb-margin">&#8212;</strong>
+    </div>
+  </div>
+
+  <!-- Deal Actions -->
+  <div class="deal-actions">
+    <button class="deal-btn deal-btn--log" id="log-deal-btn" onclick="logDeal()">&#128203; Log This Deal</button>
+    <button class="deal-btn deal-btn--copy" onclick="copyDealSummary()">&#128203; Copy Summary</button>
+  </div>
+
+  <!-- Chips -->
+  <div class="chips">
+    <div class="chip"><div class="chip-l">Margin / MT FAQ</div><div class="chip-v" id="fb-cm">&#8212;</div></div>
+    <div class="chip"><div class="chip-l">Deal Profit/Loss</div><div class="chip-v" id="fb-cp">&#8212;</div></div>
+    <div class="chip"><div class="chip-l">Kgs Cut / Payable Weight</div><div class="chip-v" id="fb-cw">&#8212;</div></div>
+    <div class="chip"><div class="chip-l">Walk Away If Price Above</div><div class="chip-v" id="fb-cx">&#8212;</div></div>
+    <div class="chip"><div class="chip-l">Breakeven Price</div><div class="chip-v" id="fb-be">&#8212;</div></div>
+  </div>
+
+  <!-- Sensitivity Strip -->
+  <div class="sens-wrap" id="fb-sens-wrap">
+    <div class="sens-hd" id="fb-sens-hd">&#9986; QC Cut Sensitivity &#8212; your only lever</div>
+    <div class="sens-row" id="fb-sens"></div>
+  </div>
+
+  <div class="info mt-14">&#128161; <strong>Before buying:</strong> Confirm ICE, Liffe and FX are updated today. Enter your sample QC readings above. If it doesn't hit target after all QC cuts, walk away &#8212; the price won't move.</div>
+</div>
+</section>
+
+<!-- ──────────────────────────────────────────────────────────
+     VIEW: TRADER VIEW
+────────────────────────────────────────────────────────── -->
+<section id="view-trader" class="view hidden">
+  <h1 class="ptitle">Trader View</h1>
+  <p class="pdesc">Full margin analysis. Model any deal in real time. Margin is always per MT of raw FAQ purchased &#8212; matching your sheet convention.</p>
+
+  <div class="mtabs" role="tablist">
+    <button class="mtb active" id="tvm-faq" role="tab" onclick="setTVMode('faq')">
+      FAQ / Parchment<span class="mtb-s">Full processing &#8212; sell blended grades</span>
+    </button>
+    <button class="mtb" id="tvm-proc" role="tab" onclick="setTVMode('proc')">
+      Processed Green Bean<span class="mtb-s">FOT price &#8212; logistics costs only</span>
+    </button>
+  </div>
+
+  <div id="tv-faq-fields">
+    <div class="fg2 mb-12">
+      <div>
+        <div class="fl">Coffee Type</div>
+        <div class="tt">
+          <button class="ttb active" id="tv-rob" onclick="setTVType('rob')">Robusta</button>
+          <button class="ttb" id="tv-ara" onclick="setTVType('ara')">Arabica</button>
+        </div>
+      </div>
+      <div>
+        <div class="fl" id="tv-plbl">FAQ Price (UGX/kg)</div>
+        <input class="fi" id="tv-price" type="number" value="11000" step="100" oninput="update()">
+      </div>
+    </div>
+    <div class="fg3 mb-12">
+      <div>
+        <div class="fl">FAQ &#8594; Green Outturn (%)</div>
+        <input class="fi" id="tv-ot" type="number" value="85" step="1" oninput="update()">
+      </div>
+      <div>
+        <div class="fl">Moisture (%)</div>
+        <input class="fi" id="tv-mc" type="number" value="14" step="0.5" oninput="update()">
+      </div>
+      <div>
+        <div class="fl">Volume (MT raw FAQ)</div>
+        <input class="fi" id="tv-vol" type="number" value="19.2" step="0.1" oninput="update()">
+      </div>
+    </div>
+    <div class="fg2 mb-12">
+      <div>
+        <div class="fl">Collection Point</div>
+        <select class="fi" id="tv-loc" onchange="update()">
+          <option value="0">Namanve</option>
+          <option value="1">Zigoti</option>
+          <option value="2">Masaka</option>
+          <option value="3">Mubende</option>
+          <option value="4">Rukungiri</option>
+        </select>
+      </div>
+      <div>
+        <div class="fl">QC Factor (from Field Buyer)</div>
+        <div class="tv-factor-display" id="tv-factor-display">1.0000</div>
+      </div>
+    </div>
+    <p class="helper-text mb-12"><strong class="text-gold">Blended FOB</strong> &#8212; weighted revenue across all grades in your mix. Margin = blended FOB &#8722; (effective price/FX) &#8722; costs. Matching your sheet.</p>
+  </div>
+
+  <div id="tv-proc-fields" style="display:none">
+    <div class="fg3 mb-12">
+      <div>
+        <div class="fl">Coffee Type</div>
+        <div class="tt">
+          <button class="ttb active" id="tv-pr-rob" onclick="setTVProcType('rob')">Robusta</button>
+          <button class="ttb" id="tv-pr-ara" onclick="setTVProcType('ara')">Arabica</button>
+        </div>
+      </div>
+      <div>
+        <div class="fl">Grade</div>
+        <select class="fi" id="tv-proc-grade" onchange="update()"></select>
+      </div>
+      <div>
+        <div class="fl">Their FOT Price (USD/MT)</div>
+        <input class="fi" id="tv-fot" type="number" value="3350" step="10" oninput="update()">
+      </div>
+    </div>
+    <div class="fg2">
+      <div>
+        <div class="fl">Volume (MT)</div>
+        <input class="fi" id="tv-pvol" type="number" value="19.2" step="0.1" oninput="update()">
+      </div>
+      <div>
+        <div class="fl">Loading/Handling (USD/MT)</div>
+        <input class="fi" id="tv-handle" type="number" value="25" step="5" oninput="update()">
+      </div>
+    </div>
+    <div class="info mt-12">&#128230; Processed costs: Kampala&#8594;Mombasa $109.64 + UCDA cess (2% of FOB) + interest + PSI/phyto + loading. NO processing costs.</div>
+  </div>
+
+  <div class="cards mt-16" id="tv-cards"></div>
+</section>
+
+<!-- ──────────────────────────────────────────────────────────
+     VIEW: MARKET INTEL
+────────────────────────────────────────────────────────── -->
+<section id="view-intel" class="view hidden">
+  <h1 class="ptitle">Market Intelligence</h1>
+  <p class="pdesc">Two segments: individual competitor analysis from your sidebar prices, then your recommended diff adjustments at each collection point. The diff is always your lever &#8212; never cut farmer prices.</p>
+
+  <div class="intel-seg">
+    <h2 class="intel-seg-title">Segment 1 &#8212; Individual Competitor Analysis</h2>
+    <p class="intel-seg-sub">Each competitor's actual Namanve price, their inferred buyer contract diff (what FOB price they must be achieving to justify paying that farm-gate price), and their estimated margin. The highest payer needs coffee urgently &#8212; that's your signal on supply tightness.</p>
+    <div class="stag">Robusta</div>
+    <div class="intel-grid" id="comp-predict-rob"></div>
+    <div class="mt-16">
+      <div class="stag">Arabica</div>
+      <div class="intel-grid mt-8" id="comp-predict-ara"></div>
+    </div>
+    <div class="cards mt-16" id="comp-inference"></div>
+  </div>
+
+  <div class="intel-seg">
+    <h2 class="intel-seg-title">Segment 2 &#8212; Your Position at Each Collection Point</h2>
+    <p class="intel-seg-sub">Using the competitor average as your Namanve benchmark, this shows whether your current diff protects $300/MT at each location &#8212; and exactly what diff you need if not. Do NOT cut farmer prices; the diff is your only lever.</p>
+    <div id="your-action-rob"></div>
+    <div class="mt-16">
+      <div class="stag">Arabica</div>
+      <div id="your-action-ara" class="mt-8"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────────────────────────────────────────────────────
+     VIEW: DIFF TABLE
+────────────────────────────────────────────────────────── -->
+<section id="view-diff" class="view hidden">
+  <h1 class="ptitle">Diff Table</h1>
+  <p class="pdesc">Adjust benchmark diffs to model market conditions. All grades auto-adjust from the benchmark. This is your primary margin lever.</p>
+
+  <div class="bench-box">
+    <div class="bench-title">&#9881; Benchmark Diffs &#8212; Adjust to Protect Your Margin</div>
+    <div class="fg2">
+      <div>
+        <div class="fl">Scr15 Robusta Benchmark Diff (USD/MT above Liffe)</div>
+        <div class="diff-input-row">
+          <span class="mono-sm text-sub">Liffe +</span>
+          <input class="fi fi-diff" id="scr15-diff" type="number" value="650" step="5" oninput="update()">
+          <span class="mono-sm text-sub">= FOB $<span id="scr15-fob">&#8212;</span>/MT</span>
+        </div>
+        <div class="diff-min-note">Min diff at avg market: <span id="rob-min-diff" class="mono-sm diff-min-val text-amb">&#8212;</span></div>
+      </div>
+      <div>
+        <div class="fl">Bugisu AA Arabica Benchmark Diff (cts/lb above ICE)</div>
+        <div class="diff-input-row">
+          <span class="mono-sm text-sub">ICE +</span>
+          <input class="fi fi-diff fi-diff--sm" id="bugaa-diff" type="number" value="35" step="1" oninput="update()">
+          <span class="mono-sm text-sub">cts/lb = FOB $<span id="bugaa-fob">&#8212;</span>/MT</span>
+        </div>
+        <div class="diff-min-note">Min diff at avg parchment: <span id="ara-min-diff" class="mono-sm diff-min-val text-amb">&#8212;</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="stag">Robusta &#8212; Liffe Basis (&#9733; = benchmark)</div>
+  <div class="table-scroll">
+    <table class="dtbl">
+      <thead>
+        <tr>
+          <th>Grade</th><th>Diff (USD/MT)</th><th>Spread vs Scr15</th>
+          <th>Blended FOB</th><th>Max FAQ Buy (Namanve)</th><th>Max FOT (Processed)</th><th>Signal</th>
+        </tr>
+      </thead>
+      <tbody id="rob-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="divider"></div>
+  <div class="stag">Arabica &#8212; ICE Basis &#215; 22.046 (&#9733; = benchmark)</div>
+  <div class="table-scroll">
+    <table class="dtbl">
+      <thead>
+        <tr>
+          <th>Grade</th><th>Diff (cts/lb)</th><th>Spread vs BugAA</th>
+          <th>FOB Price ($/MT)</th><th>Max Parchment Buy</th><th>Max FOT (Processed)</th><th>Signal</th>
+        </tr>
+      </thead>
+      <tbody id="ara-tbody"></tbody>
+    </table>
+  </div>
+  <div class="info">&#128161; <strong>Max FAQ Buy</strong> = max UGX/kg to pay for FAQ at factory gate and still make target. <strong>Max FOT</strong> = max USD/MT to accept from another exporter for already-processed coffee.</div>
+</section>
+
+<!-- ──────────────────────────────────────────────────────────
+     VIEW: COST ENGINE
+────────────────────────────────────────────────────────── -->
+<section id="view-costs" class="view hidden">
+  <h1 class="ptitle">Cost Engine</h1>
+  <p class="pdesc">All-in costs at different production volumes. Fixed costs dilute as you scale. FAQ full cost = $385.82/MT. Processed buying cost = ~$267/MT (no processing needed).</p>
+
+  <div class="cost-volume-control">
+    <div class="fl mb-7">
+      Monthly Volume:
+      <strong class="text-gold" id="c-teu">7.2</strong> TEUs =
+      <strong class="text-gold" id="c-mt">138.2</strong> MT/month =
+      <strong class="text-gold" id="c-yr">1,658.9</strong> MT/year
+    </div>
+    <div class="srow">
+      <input type="range" class="slider" id="c-slider" min="1" max="20" step="0.5" value="7.2">
+      <span class="sval" id="c-sv">7.2 TEUs</span>
+    </div>
+    <div class="ph mt-4">Current plan: 7.2 TEUs/month. Plant capacity ~18 TEUs/month (3 shifts).</div>
+  </div>
+
+  <div class="cards mb-18">
+    <div class="card card--hi">
+      <div class="card-l">FAQ Total Cost / MT</div>
+      <div class="card-v card-v--big" id="c-total">$385.82</div>
+      <div class="card-s">All-in incl. FOT-FOB. Used in all FAQ margin calcs.</div>
+    </div>
+    <div class="card card--cb">
+      <div class="card-l">Processed Total Cost / MT</div>
+      <div class="card-v text-blu" id="c-proc">$267.14</div>
+      <div class="card-s">Logistics + cess + interest only. No processing.</div>
+    </div>
+    <div class="card card--ca">
+      <div class="card-l">Fixed Cost / MT</div>
+      <div class="card-v text-amb" id="c-fixed">$59.73</div>
+      <div class="card-s">Dilutes as you scale up</div>
+    </div>
+    <div class="card card--cg">
+      <div class="card-l">Saving vs 7.2 TEU Baseline</div>
+      <div class="card-v text-grn" id="c-save">$0.00</div>
+      <div class="card-s">Extra margin room per tonne</div>
+    </div>
+  </div>
+
+  <div class="cost-breakdown-grid">
+    <div>
+      <div class="stag">FAQ / Full Processing Costs</div>
+      <div class="cbrk">
+        <div class="crow crow--hd"><span>Cost Item</span><span class="cv">$/MT</span></div>
+        <div class="crow"><span>Handling of bags</span><span class="cv">$7.23</span></div>
+        <div class="crow"><span>Export Jute Bags</span><span class="cv">$21.67</span></div>
+        <div class="crow"><span>Drying, Cleaning, Grading</span><span class="cv">$26.50</span></div>
+        <div class="crow"><span>Utilities</span><span class="cv">$1.33</span></div>
+        <div class="crow"><span>PSI + Fumigation</span><span class="cv">$0.83</span></div>
+        <div class="crow"><span>Phyto + Cert of Origin</span><span class="cv">$1.38</span></div>
+        <div class="crow"><span>UCDA Cess (2% of FOB)</span><span class="cv">$79.87</span></div>
+        <div class="crow"><span>Interest (UGEXIM 6%, 90d)</span><span class="cv">$49.01</span></div>
+        <div class="crow"><span>Broker Commission</span><span class="cv">$6.63</span></div>
+        <div class="crow"><span>BXL Hedging</span><span class="cv">$22.00</span></div>
+        <div class="crow crow--ship"><span>&#128674; FOT-FOB Logistics</span><span class="cv">$109.64</span></div>
+        <div class="crow crow--fix"><span>&#9889; Wagebill</span><span class="cv" id="c-wages">$38.49</span></div>
+        <div class="crow crow--fix"><span>&#9889; Rents</span><span class="cv" id="c-rents">$0.64</span></div>
+        <div class="crow crow--fix"><span>&#9889; Amortization</span><span class="cv">$20.00</span></div>
+        <div class="crow crow--fix"><span>&#9889; DHL</span><span class="cv" id="c-dhl">$0.60</span></div>
+        <div class="crow crow--tot"><span>FAQ TOTAL</span><span class="cv" id="c-tot">$385.82</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="stag">Processed Buying Costs Only</div>
+      <div class="cbrk">
+        <div class="crow crow--hd"><span>Cost Item</span><span class="cv">$/MT</span></div>
+        <div class="crow crow--ship"><span>&#128674; FOT-FOB Logistics (Kla&#8594;Msa)</span><span class="cv">$109.64</span></div>
+        <div class="crow"><span>UCDA Cess (2% of FOB)</span><span class="cv" id="cp-cess">$86.28</span></div>
+        <div class="crow"><span>Interest (UGEXIM 6%, 90d)</span><span class="cv">$49.01</span></div>
+        <div class="crow"><span>PSI + Phyto + Cert</span><span class="cv">$2.21</span></div>
+        <div class="crow"><span>Loading + Inter-factory</span><span class="cv" id="cp-handle">$20.00</span></div>
+        <div class="crow crow--tot"><span>PROCESSED TOTAL</span><span class="cv" id="cp-tot">$267.14</span></div>
+        <div class="cost-proc-notes">
+          <span class="text-grn">&#10003; No processing, no jute bags</span><br>
+          <span class="text-grn">&#10003; No drying/grading costs</span><br>
+          <span class="text-grn">&#10003; No wagebill allocation</span><br>
+          <span class="text-amb">&#9888; Margin tighter &#8212; don't accept losses</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="info mt-14">&#9889; <strong>Amber items are fixed costs</strong> &#8212; at 7.2 TEUs they cost $59.73/MT. Double to 14.4 TEUs and they drop to ~$30/MT.</div>
+</section>
+
+<!-- ──────────────────────────────────────────────────────────
+     VIEW: DEAL LOG
+────────────────────────────────────────────────────────── -->
+<section id="view-deallog" class="view hidden">
+  <h1 class="ptitle">Deal Log</h1>
+  <p class="pdesc">Record of all logged deals. Persists across sessions via local storage. Use the Log This Deal button in Field Buyer after each assessment.</p>
+
+  <div class="dl-stats">
+    <div class="dl-stat">
+      <div class="dl-stat-l">Session P&amp;L</div>
+      <div class="dl-stat-v text-grn" id="dl-total-pl">$0</div>
+    </div>
+    <div class="dl-stat">
+      <div class="dl-stat-l">Deals Logged</div>
+      <div class="dl-stat-v text-wht" id="dl-count">0</div>
+    </div>
+    <div class="dl-stat">
+      <div class="dl-stat-l">BUY / Total</div>
+      <div class="dl-stat-v text-grn" id="dl-buys">0 / 0</div>
+    </div>
+    <div class="dl-stat">
+      <div class="dl-stat-l">Avg Margin/MT</div>
+      <div class="dl-stat-v text-wht" id="dl-avg-margin">&#8212;</div>
+    </div>
+  </div>
+
+  <div class="dl-actions">
+    <button class="dl-clear" onclick="clearDealLog()">&#128465; Clear Log</button>
+  </div>
+  <div id="deal-log-table"></div>
+</section>
+
+</div><!-- /content-area -->
+
+<!-- ──────────────────────────────────────────────────────────
+     SIDEBAR
+────────────────────────────────────────────────────── -->
+<aside class="sb" id="sidebar" aria-label="Competitor prices and rules">
+
+  <div class="sbt">&#127981; Robusta Competitors (Namanve)</div>
+  <p class="sidebar-hint">Edit daily. Average = your Namanve price.</p>
+  <div id="comp-list"></div>
+  <div class="avg-box">
+    <div class="avg-lbl">Robusta Avg = Your Namanve Price</div>
+    <div class="avg-val" id="sb-avg">UGX 12,700/kg</div>
+  </div>
+
+  <div class="sbt mt-4">&#9749; Arabica Competitors (Parchment)</div>
+  <p class="sidebar-hint">Update when you get parchment market data.</p>
+  <div id="comp-list-ara"></div>
+  <div class="avg-box avg-box--ara">
+    <div class="avg-lbl avg-lbl--ara">Arabica Avg Parchment</div>
+    <div class="avg-val text-blu" id="sb-avg-ara">UGX 17,500/kg</div>
+  </div>
+
+  <div class="sbt">&#128205; Your Prices at Each Location</div>
+  <p class="sidebar-hint">Avg minus transport. Adjust transport below.</p>
+  <div id="loc-block"></div>
+
+  <hr class="sb-div">
+
+  <div class="sbt">&#128208; Rules of Thumb</div>
+  <div class="rules">
+    <div>&#8226; Price is <strong>market-set</strong> &#8212; not negotiable</div>
+    <div>&#8226; Your levers: <strong>QC cuts</strong> or <strong>walk away</strong></div>
+    <div>&#8226; MC above <strong>tol%</strong> &#8594; factor applies</div>
+    <div>&#8226; final = (price + add) &#247; factor</div>
+    <div>&#8226; Min margin: <strong>$300/MT</strong></div>
+    <div>&#8226; FAQ full cost: <strong>$386/MT</strong></div>
+    <div>&#8226; Processed cost: <strong>~$267/MT</strong></div>
+    <div>&#8226; ICE cts/lb &#215; <strong>22.046</strong> = $/MT</div>
+    <div>&#8226; <strong>Diff is your lever</strong> &#8212; not local price</div>
+    <div>&#8226; 1 TEU = <strong>19.2 MT</strong> green bean</div>
+  </div>
+
+  <hr class="sb-div">
+
+  <div class="sbt">&#127777;&#65039; MC Penalty Scale (fixed ranges)</div>
+  <table class="mct">
+    <tr class="text-sub"><td>MC Range</td><td class="text-right">Factor</td></tr>
+    <tr class="text-grn"><td>&#8804; tolerance</td><td class="text-right">No penalty</td></tr>
+    <tr class="text-amb"><td>tol% &#8211; 14.0%</td><td class="text-right">1&#215;</td></tr>
+    <tr class="text-amb"><td>14.1% &#8211; 15.0%</td><td class="text-right">1.25&#215;</td></tr>
+    <tr class="text-red"><td>15.1% &#8211; 16.0%</td><td class="text-right">1.5&#215;</td></tr>
+    <tr class="text-red"><td>16.1% &#8211; 17.0%</td><td class="text-right">1.75&#215;</td></tr>
+    <tr class="text-red"><td>17.1% &#8211; 18.0%</td><td class="text-right">2&#215;</td></tr>
+  </table>
+</aside>
+
+</div><!-- /main -->
+
+<script src="app.js"></script>
+</body>
+</html>
